@@ -6,6 +6,25 @@ const db = require("../db");
 
 const router = express.Router();
 
+router.get("/", (req, res) => {
+  db.all("SELECT id, username, created_at FROM users", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: "Database error" });
+    res.json(rows);
+  });
+});
+
+router.get("/:id", (req, res) => {
+  db.get(
+    "SELECT id, username, created_at FROM users WHERE id = ?",
+    [req.params.id],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: "Database error" });
+      if (!row) return res.status(404).json({ error: "Not found" });
+      res.json(row);
+    },
+  );
+});
+
 router.post("/register", async (req, res) => {
   const { username, password } = req.body;
 
@@ -70,25 +89,6 @@ router.post("/login", (req, res) => {
       res.json({
         token,
       });
-    },
-  );
-});
-
-router.get("/", (req, res) => {
-  db.all("SELECT id, username, created_at FROM users", [], (err, rows) => {
-    if (err) return res.status(500).json({ error: "Database error" });
-    res.json(rows);
-  });
-});
-
-router.get("/:id", (req, res) => {
-  db.get(
-    "SELECT id, username, created_at FROM users WHERE id = ?",
-    [req.params.id],
-    (err, row) => {
-      if (err) return res.status(500).json({ error: "Database error" });
-      if (!row) return res.status(404).json({ error: "Not found" });
-      res.json(row);
     },
   );
 });
