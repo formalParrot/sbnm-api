@@ -1,9 +1,34 @@
 const express = require("express");
+const multer = require("multer");
+const path = require("path");
 
 const db = require("../db");
 const auth = require("../middleware/auth");
 
 const router = express.Router();
+const uploadPath = path.join(__dirname, "../assets/uploads/");
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadPath);
+  },
+
+  filename: (req, file, cb) => {
+    const unique = Date.now() + path.extname(file.originalname);
+
+    cb(null, unique);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 25 * 1024 * 1024, // 25MB
+  },
+});
+
+// BUILD
+//
 
 router.get("/", (req, res) => {
   db.all("SELECT * FROM builds", [], (err, rows) => {
@@ -103,6 +128,101 @@ router.delete("/:id", auth, (req, res) => {
       }
 
       db.run("DELETE FROM builds WHERE id = ?", [req.params.id], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        res.json({ success: true });
+      });
+    },
+  );
+});
+
+// ASSET UPLOAD
+//
+
+router.get("/:id/assets", (req, res) => {
+  db.get(
+    "SELECT * FROM assets WHERE build_id = ?",
+    [req.params.id],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: "Database error" });
+      if (!row) return res.status(404).json({ error: "Not found" });
+      res.json(row);
+    },
+  );
+});
+
+router.get("/:id/assets/:assetId", (req, res) => {
+  db.get(
+    "SELECT * FROM assets WHERE id = ? AND build_id = ?",
+    [req.params.id, req.params.assetId],
+    (err, row) => {
+      if (err) return status(500).json({ error: "Database error" });
+      if (!row) return res.status(404).json({ error: "Not found" });
+      res.json(row);
+    },
+  );
+});
+
+router.post("/:id/assets", auth, upload.single("asset"), (req, res) => {
+  const buildId = req.params.id;
+
+  if (!req.file) {
+    return res.status(400).json({
+      error: "No file uploaded",
+    });
+  }
+
+  const fileUrl = `/uploads/${req.file.filename}`;
+
+  db.run(
+    `
+        INSERT INTO assets (
+          build_id,
+          uploaded_by,
+          type,
+          file_url,
+          description
+        )
+        VALUES (?, ?, ?, ?, ?)
+        `,
+    [
+      buildId,
+      req.user.id,
+      req.body.type,
+      fileUrl,
+      req.body.description || null,
+    ],
+    function (err) {
+      if (err) {
+        return res.status(500).json({
+          error: err.message,
+        });
+      }
+
+      res.json({
+        success: true,
+        assetId: this.lastID,
+        fileUrl,
+      });
+    },
+  );
+});
+
+router.delete("/:id/assets/:assetId", auth, (req, res) => {
+  const buildId = req.params.id;
+  const assetId = req.params.assetId;
+
+  db.get(
+    "SELECT uploaded_by FROM assets WHERE id = ? AND build_id = ?",
+    [assetId, buildId],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: "Database error" });
+      if (!row) return res.status(404).json({ error: "Not found" });
+      if (row.uploaded_by !== req.user.id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      db.run("DELETE FROM assets WHERE id = ?", [assetId], (err) => {
         if (err) return res.status(500).json({ error: err.message });
 
         res.json({ success: true });
