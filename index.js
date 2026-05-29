@@ -10,6 +10,6 @@ app.use("/builds", require("./routes/builds"));
 
 app.use("/uploads", express.static(path.join(__dirname, "assets/uploads")));
 
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
+app.listen(3000, "::", () => {
+  console.log("Server running on IPv6 port 3000");
 });
