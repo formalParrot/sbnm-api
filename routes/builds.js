@@ -1,6 +1,7 @@
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
 
 const db = require("../db");
 const auth = require("../middleware/auth");
@@ -194,6 +195,14 @@ router.post("/:id/assets", auth, upload.single("asset"), (req, res) => {
     ],
     function (err) {
       if (err) {
+        fs.unlink(req.file.path, (unlinkErr) => {
+          if (unlinkErr) {
+            console.error("Failed to delete orphaned file:", unlinkErr);
+          } else {
+            console.log("Successfully deleted orphaned file due to DB error.");
+          }
+        });
+
         return res.status(500).json({
           error: err.message,
         });
