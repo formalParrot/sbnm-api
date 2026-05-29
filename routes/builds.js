@@ -70,7 +70,7 @@ router.patch("/:id", auth, (req, res) => {
 
       if (req.body.description !== undefined) {
         fields.push("description = ?");
-        values.push(req.body.name);
+        values.push(req.body.description);
       }
 
       if (fields.length === 0) {
